@@ -93,11 +93,14 @@ int cmd_cd(unused struct tokens * tokens){
         return 0;
       }else{
            printf("folowwing error happned : %s\n",strerror(errno));
+           return -1;
 
       }
 
 
     }
+
+
 
 
 
