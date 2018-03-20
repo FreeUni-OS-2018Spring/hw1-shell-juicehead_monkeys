@@ -30,6 +30,7 @@ pid_t shell_pgid;
 int cmd_exit(struct tokens *tokens);
 int cmd_help(struct tokens *tokens);
 int cmd_pwd(struct tokens * tokens);
+int cmd_cd(struct tokens *tokens);
 
 
 /* Built-in command functions take token array (see parse.h) and return int */
@@ -45,12 +46,64 @@ typedef struct fun_desc {
 fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_exit, "exit", "exit the command shell"},
-  {cmd_pwd,"pwd","prints working directory"}
+  {cmd_pwd,"pwd","prints working directory"},
+  {cmd_cd,"cd","change directory"}
 
 };
 
 
+int cmd_cd(unused struct tokens * tokens){
+    char *path = tokens_get_token(tokens,(size_t)1); 
+   
+    char buffer [512]; //buffer for current directory
+    char * currentDirectory = getcwd(buffer,512);
+  
+    if(strcmp(path,"..") == 0 && currentDirectory != NULL)
+    {
+     
+        char * last = strrchr(currentDirectory,'/'); //get address of last occurence of '/'
+        char previousDirectory [512];
+        memset(previousDirectory,0,512);
+        strncpy(previousDirectory,buffer,last-currentDirectory); //last-currentDirectory is size of previous Dir
+        int status = chdir(previousDirectory);
+        if(status == 0){
+           return 0; 
 
+        }else{
+             printf("folowwing error happned : %s\n",strerror(errno));
+             return -1;
+
+        }
+
+
+
+
+    }
+
+    int status = chdir(path); //change dir if possible for absolute path
+    if(status == 0){
+      return 0;
+
+
+    }else{
+      strcat(buffer,path);
+      int statusRelativePath = chdir(buffer); //change dir if possible for relative current dir + relative path
+      if(statusRelativePath == 0){
+
+        return 0;
+      }else{
+           printf("folowwing error happned : %s\n",strerror(errno));
+
+      }
+
+
+    }
+
+
+
+
+
+}
 
 /*prints working directory */
 int cmd_pwd(unused struct tokens *tokens){
