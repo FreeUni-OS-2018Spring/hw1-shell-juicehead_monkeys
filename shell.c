@@ -74,10 +74,6 @@ int cmd_cd(unused struct tokens * tokens){
              return -1;
 
         }
-
-
-
-
     }
 
     int status = chdir(path); //change dir if possible for absolute path
@@ -100,13 +96,9 @@ int cmd_cd(unused struct tokens * tokens){
 
     }
 
-
-
-
-
-
-
 }
+
+
 
 /*prints working directory */
 int cmd_pwd(unused struct tokens *tokens){
@@ -125,13 +117,40 @@ int cmd_pwd(unused struct tokens *tokens){
      return 0;
 
    }
-
-
-   
-
-
 }
 
+
+
+/* executes given program*/
+int progrExe(struct tokens *tokens) {
+
+  pid_t pid;
+
+  pid = fork();
+
+  if (pid < 0) {
+    fprintf(stderr, "Fork Failed");
+    return 1;
+
+  } else if (pid == 0) {
+
+    size_t nArgs = tokens_get_length(tokens);
+    char *arr[nArgs+1];
+
+    for (size_t i = 0; i < nArgs; ++i) {
+     arr[i] = tokens_get_token(tokens, i);
+    }
+
+    arr[nArgs] = NULL;
+
+    execv(arr[0], arr);
+
+  } else {
+    wait(NULL);
+  }
+
+  return 0;
+}
 
 
 /* Prints a helpful description for the given command */
@@ -201,7 +220,9 @@ int main(unused int argc, unused char *argv[]) {
       cmd_table[fundex].fun(tokens);
     } else {
       /* REPLACE this to run commands as programs. */
-      fprintf(stdout, "This shell doesn't know how to run programs.\n");
+
+      progrExe(tokens);
+
     }
 
     if (shell_is_interactive)
