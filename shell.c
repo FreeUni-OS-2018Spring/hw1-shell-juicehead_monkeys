@@ -9,6 +9,7 @@
 #include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #include "tokenizer.h"
 
@@ -74,7 +75,6 @@ int cmd_cd(unused struct tokens * tokens){
              return -1;
 
         }
-
     }
 
     int status = chdir(path); //change dir if possible for absolute path
@@ -115,11 +115,60 @@ int cmd_pwd(unused struct tokens *tokens){
      return 0;
 
    }
-
 }
 
 
 
+/* executes given program,if absolutePath variable is empty that means we already have absolute paht in tokens[0],
+if it's not empty then absolute path will be in absolutePath variable
+
+ */
+int progrExe(struct tokens *tokens,char * absolutePath) {
+
+  pid_t pid;
+
+  pid = fork();
+
+  if (pid < 0) {
+    fprintf(stderr, "Fork Failed");
+    return 1;
+
+  } else if (pid == 0) {
+
+    size_t nArgs = tokens_get_length(tokens);
+    char *arr[nArgs+1];
+
+    if(absolutePath == NULL){
+      arr[0] = tokens_get_token(tokens,0);
+    }else{
+      arr[0] = absolutePath;
+    }
+    for (size_t i = 1; i < nArgs; ++i) {
+     
+       arr[i] = tokens_get_token(tokens, i);
+      
+    }
+
+    arr[nArgs] = NULL;
+
+    execv(arr[0], arr);
+
+    exit(EXIT_FAILURE); //it comes to this line if only execv failed.In this case terminate child process with failure
+
+   
+
+  } else {
+    int status = 0;
+    wait(&status);
+   
+    return WEXITSTATUS(status); //on success returns 0,on error return 1
+    
+    
+
+  }
+
+  return 0;
+}
 
 
 /* Prints a helpful description for the given command */
@@ -131,6 +180,7 @@ int cmd_help(unused struct tokens *tokens) {
 
 /* Exits this shell */
 int cmd_exit(unused struct tokens *tokens) {
+
   exit(0);
 }
 
@@ -171,29 +221,57 @@ void init_shell() {
 char * searchInPath(char * program){
   char * path = getenv("PATH");
  
-  for (char *token = strtok(path,":"); path != NULL; path = strtok(NULL, ":"))
+  for (char *token = strtok(path,":"); token != NULL; token = strtok(NULL, ":"))
   {
-        char * last = strrchr(token,'/'); //get last occurence of '/' in token
-        char buffer [512];
-        memset(buffer,0,512);
+    DIR *d;
+    struct dirent *dir;
+ 
+    d = opendir(token);
+    if (d) {
+     while ((dir = readdir(d)) != NULL) {
+       if(strcmp(dir->d_name,program) == 0){
+         char * copy = malloc(strlen(token) + strlen(program) +2); //keep absolute path to program
+         strcpy(copy,token);
+         strcat(copy,"/");
+         strcat(copy,program);
 
-        //copy the program name in path to  buffer.last-token is the byte size of string before program name
-        strncpy(buffer,last+1,strlen(token) - (last - token));  
-        
-        if(strcmp(buffer,program) == 0  );
-        {
-          char * copy = malloc(strlen(token)); //get copy of token to return
-          strcpy(copy,token);
-          return copy;
-        }
+     
+         return copy;
+       }
+     //  printf("%s\n", dir->d_name);
+     }
+    closedir(d);
+  }
 
 
   }
 
   return NULL;
+}
 
 
+//calls progrExe based on given absolute path / only command 
+int runMyProgram(struct  tokens * tokens){
+  int status = progrExe(tokens,NULL); //if user gave us absolute path
 
+  if(status == 0){
+    return 0;
+  }else{
+   
+    char * commandPath = searchInPath(tokens_get_token(tokens,0)); //user gave us only command.Get the absolutePath
+    
+   
+    int statusForCommand = progrExe(tokens,commandPath);
+    free(commandPath); //deallocation of path
+    if(statusForCommand ==0 ){ //success
+      return 0;
+    }else{
+      printf("error with execution program");
+      
+      return -1;
+    }
+
+  }
 
 }
 
@@ -217,9 +295,11 @@ int main(unused int argc, unused char *argv[]) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
-      /* REPLACE this to run commands as programs. */
     
-      fprintf(stdout, "This shell doesn't know how to run programs.\n");
+      /* REPLACE this to run commands as programs. */
+       if(tokens_get_length(tokens) != 0)
+          runMyProgram(tokens);
+
     }
 
     if (shell_is_interactive)
