@@ -141,6 +141,7 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     if(absolutePath == NULL){
       arr[0] = tokens_get_token(tokens,0);
     }else{
+ 
       arr[0] = absolutePath;
     }
     for (size_t i = 1; i < nArgs; ++i) {
@@ -220,9 +221,15 @@ void init_shell() {
 }
 
 char * searchInPath(char * program){
-  char * path = getenv("PATH");
+  char * pathVariable = getenv("PATH");
+  char * copyPath = malloc(strlen(pathVariable)+1);
+  memset(copyPath,0,strlen(pathVariable)+1);
+  strncpy(copyPath,pathVariable,strlen(pathVariable));
+
+  
+
  
-  for (char *token = strtok(path,":"); token != NULL; token = strtok(NULL, ":"))
+  for (char *token = strtok(copyPath,":"); token != NULL; token = strtok(NULL, ":"))
   {
     DIR *d;
     struct dirent *dir;
@@ -235,18 +242,19 @@ char * searchInPath(char * program){
          strcpy(copy,token);
          strcat(copy,"/");
          strcat(copy,program);
+         
 
-     
+         free(copyPath); //free copy of env variable 
          return copy;
        }
-     //  printf("%s\n", dir->d_name);
+
      }
     closedir(d);
   }
 
 
   }
-
+  free(copyPath); //free copy of env variable 
   return NULL;
 }
 
@@ -258,13 +266,13 @@ int runMyProgram(struct  tokens * tokens){
   if(status == 0){
     return 0;
   }else{
-   
+
     char * commandPath = searchInPath(tokens_get_token(tokens,0)); //user gave us only command.Get the absolutePath
     
    
     int statusForCommand = progrExe(tokens,commandPath);
     free(commandPath); //deallocation of path
-    if(statusForCommand ==0 ){ //success
+    if(statusForCommand == 0 ){ //success
       return 0;
     }else{
       printf("error with execution program");
