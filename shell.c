@@ -170,6 +170,29 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
   return 0;
 }
 
+  if (pid < 0) {
+    fprintf(stderr, "Fork Failed");
+    return 1;
+
+  } else if (pid == 0) {
+
+    size_t nArgs = tokens_get_length(tokens);
+    char *arr[nArgs+1];
+
+    for (size_t i = 0; i < nArgs; ++i) {
+     arr[i] = tokens_get_token(tokens, i);
+    }
+
+    arr[nArgs] = NULL;
+
+    execv(arr[0], arr);
+
+  } else {
+    wait(NULL);
+  }
+
+  return 0;
+}
 
 /* Prints a helpful description for the given command */
 int cmd_help(unused struct tokens *tokens) {
