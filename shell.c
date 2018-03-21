@@ -75,9 +75,6 @@ int cmd_cd(unused struct tokens * tokens){
 
         }
 
-
-
-
     }
 
     int status = chdir(path); //change dir if possible for absolute path
@@ -99,13 +96,6 @@ int cmd_cd(unused struct tokens * tokens){
 
 
     }
-
-
-
-
-
-
-
 }
 
 /*prints working directory */
@@ -126,11 +116,9 @@ int cmd_pwd(unused struct tokens *tokens){
 
    }
 
-
-   
-
-
 }
+
+
 
 
 
@@ -180,6 +168,35 @@ void init_shell() {
   }
 }
 
+char * searchInPath(char * program){
+  char * path = getenv("PATH");
+ 
+  for (char *token = strtok(path,":"); path != NULL; path = strtok(NULL, ":"))
+  {
+        char * last = strrchr(token,'/'); //get last occurence of '/' in token
+        char buffer [512];
+        memset(buffer,0,512);
+
+        //copy the program name in path to  buffer.last-token is the byte size of string before program name
+        strncpy(buffer,last+1,strlen(token) - (last - token));  
+        
+        if(strcmp(buffer,program) == 0  );
+        {
+          char * copy = malloc(strlen(token)); //get copy of token to return
+          strcpy(copy,token);
+          return copy;
+        }
+
+
+  }
+
+  return NULL;
+
+
+
+
+}
+
 int main(unused int argc, unused char *argv[]) {
   init_shell();
 
@@ -201,6 +218,7 @@ int main(unused int argc, unused char *argv[]) {
       cmd_table[fundex].fun(tokens);
     } else {
       /* REPLACE this to run commands as programs. */
+    
       fprintf(stdout, "This shell doesn't know how to run programs.\n");
     }
 
