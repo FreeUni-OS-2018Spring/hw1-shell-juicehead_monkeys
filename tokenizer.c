@@ -113,6 +113,14 @@ char *tokens_get_token(struct tokens *tokens, size_t n) {
   }
 }
 
+
+void tokens_print(struct tokens *tokens) {
+  int len = tokens_get_length(tokens);
+  for (int i = 0; i < len; i++) {
+    printf("%s\n", tokens_get_token(tokens, i));
+  }
+}
+
 void tokens_destroy(struct tokens *tokens) {
   if (tokens == NULL) {
     return;

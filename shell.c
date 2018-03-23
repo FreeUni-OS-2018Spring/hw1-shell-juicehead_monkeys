@@ -10,6 +10,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "tokenizer.h"
 
@@ -51,6 +53,38 @@ fun_desc_t cmd_table[] = {
   {cmd_cd,"cd","change directory"}
 
 };
+
+
+
+
+
+
+
+
+int isIOCommand(struct tokens *tokens) {
+  //tokens_print(tokens);
+  char *strings[] = {">", "<", "<<", ">>"};
+  int size = tokens_get_length(tokens);
+  //printf("size iz -- %d\n", size);
+  for (int i = 0; i < size; ++i) {
+    char *tok = tokens_get_token(tokens, i);
+    //printf("tok -- %s\n", tok);
+    int arrLen = sizeof(strings)/sizeof(char *);
+    for (int j = 0; j < arrLen; j++) {
+      if (strcmp(tok, strings[j]) == 0){
+        //printf("found %s\n", tok);
+        return i;
+      } 
+    }
+  }
+  return 0;  
+}
+
+
+void handleIoCommand(struct tokens *tokens) {
+
+}
+
 
 
 int cmd_cd(unused struct tokens * tokens){
@@ -125,6 +159,7 @@ if it's not empty then absolute path will be in absolutePath variable
  */
 int progrExe(struct tokens *tokens,char * absolutePath) {
 
+  int isIO = isIOCommand(tokens);
   pid_t pid;
 
   pid = fork();
@@ -136,6 +171,9 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
   } else if (pid == 0) {
 
     size_t nArgs = tokens_get_length(tokens);
+    if (isIO) {
+      nArgs = isIO; // program arguments should be before io sign
+    }
     char *arr[nArgs+1];
 
     if(absolutePath == NULL){
@@ -144,6 +182,9 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
  
       arr[0] = absolutePath;
     }
+
+
+
     for (size_t i = 1; i < nArgs; ++i) {
      
        arr[i] = tokens_get_token(tokens, i);
@@ -151,6 +192,34 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     }
 
     arr[nArgs] = NULL;
+
+    char *file = tokens_get_token(tokens, isIO+1);
+
+    int outputFile;
+
+
+    int flags;
+    int newfd;
+
+    char *tok = tokens_get_token(tokens, isIO);
+    if (strcmp(tok, ">") == 0) {
+      flags = O_CREAT | O_WRONLY | O_TRUNC;
+      newfd = 1;
+
+    } else if (strcmp(tok, "<") == 0) {
+      flags = O_RDONLY;
+      newfd = 0;
+
+    } else if (strcmp(tok, ">>") == 0) {
+      flags = O_CREAT | O_WRONLY | O_APPEND;
+      newfd = 1;
+    }
+
+    if (isIO) {
+      outputFile = open(file, flags, S_IRUSR | S_IWUSR);
+
+      dup2(outputFile, newfd);
+    }
 
     execv(arr[0], arr);
 
@@ -301,10 +370,14 @@ int main(unused int argc, unused char *argv[]) {
     /* Find which built-in function to run. */
     int fundex = lookup(tokens_get_token(tokens, 0));
 
+
+
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
-    
+      
+     
+
       /* REPLACE this to run commands as programs. */
        if(tokens_get_length(tokens) != 0)
           runMyProgram(tokens);
