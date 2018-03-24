@@ -10,8 +10,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <dirent.h>
-
 #include "tokenizer.h"
+
 
 /* Convenience macro to silence compiler warnings about unused function parameters. */
 #define unused __attribute__((unused))
@@ -284,6 +284,207 @@ int runMyProgram(struct  tokens * tokens){
 
 }
 
+
+
+
+char ** getExecvArgument(struct  tokens * tokens,int quantityOfPipes , int * pipeTokenLocations ,int childIndex,int numChildren){
+     int start;
+     int end;
+     
+        if(childIndex == 0){
+          start = 0;
+          end = pipeTokenLocations[0];
+        }else {
+          start = pipeTokenLocations[childIndex-1]+1;  
+          if(childIndex == quantityOfPipes ){
+            end = tokens_get_length(tokens);
+          }else {
+            end = pipeTokenLocations[childIndex];
+          }
+        }
+        int argSize = end - start + 1;
+        int argsPos = 1;
+        char ** args = malloc(argSize * sizeof(char*));
+        args[0] = searchInPath(tokens_get_token(tokens,start));
+
+       
+        for(int index =start+1; index < end;index++ ){
+          args[argsPos] = tokens_get_token(tokens,index);
+
+          argsPos++;
+          
+        }
+
+         args[argSize-1] = NULL;
+
+
+    return args;     
+
+}
+
+
+int makePipes(struct tokens * tokens,int * pipeTokenLocations,int quantityOfPipes){
+  int pfd[quantityOfPipes][2];
+  int numChildren = quantityOfPipes +1;
+
+   for (int i=0; i<quantityOfPipes; i++)
+    {
+        if (pipe(pfd[i]) == -1)
+        {
+             printf("folowwing error happned : %s\n",strerror(errno));
+             return -1;
+        }
+    }
+
+  for(int i=0;i<numChildren;i++){
+    pid_t pid = fork();
+
+    if(pid < 0 ){
+       printf("folowwing error happned : %s\n",strerror(errno));
+      exit(EXIT_FAILURE);
+    }else if(pid == 0){
+
+
+       
+          //bind my stdin to previous pipe
+         if(i>0 && i<numChildren-1 ){
+           if(pfd[i-1][0] !=STDIN_FILENO){
+              if(dup2(pfd[i-1][0],STDIN_FILENO) == -1){
+                //errExit("dup2 ");
+                    printf("error with dup : %s\n",strerror(errno));
+                    exit(EXIT_FAILURE);
+              }
+              if(close(pfd[i-1][0]) == -1){
+                //errExit("close desc"); 
+                  printf("error with close: %s\n",strerror(errno));
+                  exit(EXIT_FAILURE);
+
+              }
+
+
+
+           }
+           //close my copy of previous pipe's writing
+            close(pfd[i-1][1]);
+
+            //bind my output to next pipe
+             if(pfd[i][1] !=STDOUT_FILENO){
+                if(dup2(pfd[i][1],STDOUT_FILENO) == -1){
+                  //errExit("dup2 1");
+                      exit(EXIT_FAILURE);
+                }
+                if(close(pfd[i][1]) == -1){
+                  //errExit("close 2"); 
+                      exit(EXIT_FAILURE);
+
+                }
+
+            }
+            //close my copy of next pipe's reading
+            close(pfd[i][0]);
+                 //close my copy of other descriptors
+          for (int j = 0; j < numChildren-1; j++) {
+            if (j != i && j != i - 1)  {
+              close(pfd[j][0]);
+              close(pfd[j][1]);
+              }
+         }
+          char ** args = getExecvArgument(tokens,quantityOfPipes,pipeTokenLocations,i,numChildren); 
+          execv(args[0],args);
+
+        }else   if(i == 0){
+          
+               //close my copy of reading 
+            if(close(pfd[i][0]) == -1){
+              exit(EXIT_FAILURE);
+            }
+             //bind my output to next pipe
+             if(pfd[i][1] !=STDOUT_FILENO){
+                if(dup2(pfd[i][1],STDOUT_FILENO) == -1){
+                  //errExit("dup2 1");
+                      exit(EXIT_FAILURE);
+                }
+                if(close(pfd[i][1]) == -1){
+                  //errExit("close 2"); 
+                      exit(EXIT_FAILURE);
+
+                }
+
+            }
+           
+             for (int j = 0; j < numChildren-1; j++) {
+              if (j != i)  {
+                close(pfd[j][0]);
+                close(pfd[j][1]);
+                }
+             }
+
+            char ** args = getExecvArgument(tokens,quantityOfPipes,pipeTokenLocations,i,numChildren); 
+            execv(args[0],args);
+
+        }else {
+
+            //close my copy of writing
+
+             if(close(pfd[i-1][1]) == -1){
+               exit(EXIT_FAILURE);
+             }
+             if(pfd[i-1][0] !=STDIN_FILENO){
+              if(dup2(pfd[i-1][0],STDIN_FILENO) == -1){
+                //errExit("dup2 ");
+                    printf("error with dup : %s\n",strerror(errno));
+                    exit(EXIT_FAILURE);
+              }
+              if(close(pfd[i-1][0]) == -1){
+                //errExit("close desc"); 
+                  printf("error with close: %s\n",strerror(errno));
+                  exit(EXIT_FAILURE);
+
+              }
+           
+            for (int j = 0; j < numChildren-1; j++) {
+              if (j != i-1  )  {
+                close(pfd[j][0]);
+                close(pfd[j][1]);
+                }
+             }
+
+               char ** args = getExecvArgument(tokens,quantityOfPipes,pipeTokenLocations,i,numChildren); 
+               execv(args[0],args);
+        }
+
+        
+
+       
+ 
+      //errExit("exec problem");
+      printf("folowwing error happned : %s\n",strerror(errno));
+      exit(EXIT_FAILURE);
+
+
+      }
+    }
+
+
+  }
+
+
+
+  //parent closes it own descriptors
+  for(int i=0;i<numChildren-1;i++){
+    close(pfd[i][0]);
+    close(pfd[i][1]);
+  }
+
+  for(int i=0;i<numChildren;i++){
+    wait( NULL);
+  }
+
+  return 0;
+
+
+}
+
 int main(unused int argc, unused char *argv[]) {
   init_shell();
 
@@ -304,11 +505,29 @@ int main(unused int argc, unused char *argv[]) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
+
+      int quantityOfPipes = 0;
+      int pipeTokenLocations[tokens_get_length(tokens)];
+      for(int i=0;i<tokens_get_length(tokens);i++){
     
-      /* REPLACE this to run commands as programs. */
+        if(strcmp(tokens_get_token(tokens,i),"|") == 0){
+          
+          pipeTokenLocations[quantityOfPipes] = i;
+          quantityOfPipes++;
+        }
+
+      }
+    
+    
+      if(quantityOfPipes > 0){
+        makePipes(tokens,pipeTokenLocations,quantityOfPipes);
+       
+
+      }else{
        if(tokens_get_length(tokens) != 0)
           runMyProgram(tokens);
 
+      }
     }
 
     if (shell_is_interactive)
