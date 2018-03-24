@@ -146,7 +146,10 @@ int cmd_pwd(unused struct tokens *tokens){
    }
 }
 
-
+int isBg(struct tokens *tokens) {
+  if (strcmp(tokens_get_token(tokens, tokens_get_length(tokens)-1), "&") == 0) return 1;
+  return 0;
+}
 
 /* executes given program,if absolutePath variable is empty that means we already have absolute paht in tokens[0],
 if it's not empty then absolute path will be in absolutePath variable
@@ -154,6 +157,7 @@ if it's not empty then absolute path will be in absolutePath variable
  */
 int progrExe(struct tokens *tokens,char * absolutePath) {
 
+  int isBgProcess = isBg(tokens);
   int isIO = isIOCommand(tokens);
   pid_t pid;
 
@@ -172,7 +176,10 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     size_t nArgs = tokens_get_length(tokens);
     if (isIO) {
       nArgs = isIO; // program arguments should be before io sign
+    } else if (isBgProcess) {
+      nArgs = nArgs-1; // this means the last token is '&' symbol and is not a program argument
     }
+
     char *arr[nArgs+1];
 
     if(absolutePath == NULL){
@@ -219,6 +226,7 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
       dup2(outputFile, newfd);
     }
 
+    //tcsetpgrp(newfd, getpid());
     execv(arr[0], arr);
 
     exit(EXIT_FAILURE); //it comes to this line if only execv failed.In this case terminate child process with failure
@@ -226,14 +234,17 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
    
 
   } else {
-
+    signal(SIGTTOU, SIG_IGN); // ignore 
     if (setpgid(pid, pid) == -1 && errno != EACCES) {
       perror(NULL);
+    }
+    if (!isBgProcess) {
+      tcsetpgrp(0, pid);
     }
 
     int status = 0;
     wait(&status);
-   
+    if (!isBgProcess) tcsetpgrp(0, getpid());
     return WEXITSTATUS(status); //on success returns 0,on error return 1
     
     
