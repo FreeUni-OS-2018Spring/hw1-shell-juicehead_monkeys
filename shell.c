@@ -10,7 +10,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <dirent.h>
-
+#include <sys/time.h>
+#include <sys/resource.h>
 #include "tokenizer.h"
 
 /* Convenience macro to silence compiler warnings about unused function parameters. */
@@ -32,7 +33,7 @@ int cmd_exit(struct tokens *tokens);
 int cmd_help(struct tokens *tokens);
 int cmd_pwd(struct tokens * tokens);
 int cmd_cd(struct tokens *tokens);
-
+int cmd_ulimit(struct tokens * tokens);
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -48,11 +49,123 @@ fun_desc_t cmd_table[] = {
   {cmd_help, "?", "show this help menu"},
   {cmd_exit, "exit", "exit the command shell"},
   {cmd_pwd,"pwd","prints working directory"},
-  {cmd_cd,"cd","change directory"}
-
+  {cmd_cd,"cd","change directory"},
+  {cmd_ulimit,"ulimit","return or change current limit"}
 };
 
-
+int cmd_ulimit(unused struct tokens * tokens) {
+	char * lastpart = tokens_get_token(tokens,(size_t)1); 
+	struct rlimit  * t = malloc(sizeof(struct rlimit));
+	int status = -1;
+	if(strcmp(lastpart,"-f")== 0 || strcmp(lastpart,"ulimit")== 0){
+		status = getrlimit(RLIMIT_FSIZE,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("file size  :   %s\n","unlimited");
+		} else {
+			printf("file size  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-c")== 0) {
+		status = getrlimit(RLIMIT_CORE,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("core file size  :   %s\n","unlimited");
+		} else {
+			printf("core file size  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-t")== 0) {
+		status = getrlimit(RLIMIT_CPU,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("cpu time  :   %s\n","unlimited");
+		} else {
+			printf("cpu time  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-v")== 0) {
+		status = getrlimit(RLIMIT_AS,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("virtual memory  :   %s\n","unlimited");
+		} else {
+			printf("virtual memory  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-d")== 0) {
+		status = getrlimit(RLIMIT_DATA,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("data seg size  :   %s\n","unlimited");
+		} else {
+			printf("data seg size  : %lu    %s\n",t->rlim_cur/1024,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-x")== 0) {
+		status = getrlimit(RLIMIT_LOCKS,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("file locks  :   %s\n","unlimited");
+		} else {
+			printf("file locks  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-l")== 0) {
+		status = getrlimit(RLIMIT_MEMLOCK,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("max locked memory  :   %s\n","unlimited");
+		} else {
+			printf("max locked memory  : %lu    %s\n",t->rlim_cur/1024,lastpart);
+		}
+		return status;
+	}
+	else if(strcmp(lastpart,"-q")== 0) {
+		status = getrlimit(RLIMIT_MSGQUEUE,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("POSIX message queue  :   %s\n","unlimited");
+		} else {
+			printf("POSIX message queue  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-n")== 0) {
+		status = getrlimit(RLIMIT_NOFILE,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("open files  :   %s\n","unlimited");
+		} else {
+			printf("open files  : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	}else if(strcmp(lastpart,"-r")== 0) {
+		status = getrlimit(RLIMIT_RTPRIO,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("real-time priority  :   %s\n","unlimited");
+		} else {
+			printf("real-time priority : %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	}	else if(strcmp(lastpart,"-i")== 0) {
+		status = getrlimit(RLIMIT_SIGPENDING,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("pending signals  :   %s\n","unlimited");
+		} else {
+			printf("pending signals: %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	}	else if(strcmp(lastpart,"-s")== 0) {
+		status = getrlimit(RLIMIT_STACK,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("stack size  :   %s\n","unlimited");
+		} else {
+			printf("stack size: %lu    %s\n",t->rlim_cur/1024,lastpart);
+		}
+		return status;
+	}	else if(strcmp(lastpart,"-u")== 0) {
+		status = getrlimit(RLIMIT_NPROC,t);
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("max user processes  :   %s\n","unlimited");
+		} else {
+			printf("max user processes: %lu    %s\n",t->rlim_cur,lastpart);
+		}
+		return status;
+	}
+	printf("%d\n",status);
+	return status;
+}
 int cmd_cd(unused struct tokens * tokens){
     char *path = tokens_get_token(tokens,(size_t)1); 
    
@@ -87,6 +200,7 @@ int cmd_cd(unused struct tokens * tokens){
       int statusRelativePath = chdir(buffer); //change dir if possible for relative current dir + relative path
       if(statusRelativePath == 0){
 
+
         return 0;
       }else{
            printf("folowwing error happned : %s\n",strerror(errno));
@@ -109,7 +223,6 @@ int cmd_pwd(unused struct tokens *tokens){
      return -1;
 
    } else {
-  
      printf("%s\n",buffer);
      free(buffer);
      return 0;
