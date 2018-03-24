@@ -175,7 +175,7 @@ int cmd_ulimit(unused struct tokens * tokens) {
 
 
 int isIOCommand(struct tokens *tokens) {
-  char *strings[] = {">", "<", "<<", ">>"};
+  char *strings[] = {">", "<", ">>"};
   int size = tokens_get_length(tokens);
   for (int i = 0; i < size; ++i) {
     char *tok = tokens_get_token(tokens, i);
@@ -273,6 +273,7 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
 
   int isBgProcess = isBg(tokens);
   int isIO = isIOCommand(tokens);
+  int lastFile;
   pid_t pid;
 
   pid = fork();
@@ -288,11 +289,16 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     }
 
     size_t nArgs = tokens_get_length(tokens);
-    if (isIO) {
-      nArgs = isIO; // program arguments should be before io sign
-    } else if (isBgProcess) {
+
+    if (isBgProcess) {
       nArgs = nArgs-1; // this means the last token is '&' symbol and is not a program argument
     }
+
+    lastFile = nArgs;
+    if (isIO) {
+      lastFile = nArgs-1;
+      nArgs = isIO; // program arguments should be before io sign
+    }  
 
     char *arr[nArgs+1];
 
@@ -303,41 +309,37 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
       arr[0] = absolutePath;
     }
 
-
-
-    for (size_t i = 1; i < nArgs; ++i) {
-     
-       arr[i] = tokens_get_token(tokens, i);
-      
-    }
-
     arr[nArgs] = NULL;
 
-    char *file = tokens_get_token(tokens, isIO+1);
-
-    int outputFile;
-
-
-    int flags;
-    int newfd;
-
-    char *tok = tokens_get_token(tokens, isIO);
-    if (strcmp(tok, ">") == 0) {
-      newfd = 1;
-      flags = O_CREAT | O_WRONLY | O_TRUNC;
-
-    } else if (strcmp(tok, "<") == 0) {
-      newfd = 0;
-      flags = O_RDONLY;
-
-    } else if (strcmp(tok, ">>") == 0) {
-      newfd = 1;
-      flags = O_CREAT | O_WRONLY | O_APPEND;
-    }
-
     if (isIO) {
-      outputFile = open(file, flags, S_IRUSR | S_IWUSR);
-      dup2(outputFile, newfd);
+      for (int i = isIO; i < lastFile; i += 2){
+        char *file = tokens_get_token(tokens, i+1);
+    
+        int fd;
+    
+    
+        int flags;
+        int newfd;
+    
+        
+        char *tok = tokens_get_token(tokens, i);
+        if (strcmp(tok, ">") == 0) {
+          newfd = 1;
+          flags = O_CREAT | O_WRONLY | O_TRUNC;
+    
+        } else if (strcmp(tok, "<") == 0) {
+          newfd = 0;
+          flags = O_RDONLY;
+    
+        } else if (strcmp(tok, ">>") == 0) {
+          newfd = 1;
+          flags = O_CREAT | O_WRONLY | O_APPEND;
+        }
+    
+        
+        fd = open(file, flags, S_IRUSR | S_IWUSR);
+        dup2(fd, newfd);
+      }
     }
 
     //tcsetpgrp(newfd, getpid());
