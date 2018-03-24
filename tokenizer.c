@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "tokenizer.h"
-
+#include <stdio.h>
 struct tokens {
   size_t tokens_length;
   char **tokens;
@@ -110,6 +110,14 @@ char *tokens_get_token(struct tokens *tokens, size_t n) {
     return NULL;
   } else {
     return tokens->tokens[n];
+  }
+}
+
+
+void tokens_print(struct tokens *tokens) {
+  int len = tokens_get_length(tokens);
+  for (int i = 0; i < len; i++) {
+    printf("%s\n", tokens_get_token(tokens, i));
   }
 }
 
