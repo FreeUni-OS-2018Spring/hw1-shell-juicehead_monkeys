@@ -58,21 +58,14 @@ fun_desc_t cmd_table[] = {
 
 
 
-
-
-
 int isIOCommand(struct tokens *tokens) {
-  //tokens_print(tokens);
   char *strings[] = {">", "<", "<<", ">>"};
   int size = tokens_get_length(tokens);
-  //printf("size iz -- %d\n", size);
   for (int i = 0; i < size; ++i) {
     char *tok = tokens_get_token(tokens, i);
-    //printf("tok -- %s\n", tok);
     int arrLen = sizeof(strings)/sizeof(char *);
     for (int j = 0; j < arrLen; j++) {
       if (strcmp(tok, strings[j]) == 0){
-        //printf("found %s\n", tok);
         return i;
       } 
     }
@@ -170,6 +163,10 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
 
   } else if (pid == 0) {
 
+    if (setpgid(0, 0) == -1) {
+      perror(NULL);
+    }
+
     size_t nArgs = tokens_get_length(tokens);
     if (isIO) {
       nArgs = isIO; // program arguments should be before io sign
@@ -203,21 +200,20 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
 
     char *tok = tokens_get_token(tokens, isIO);
     if (strcmp(tok, ">") == 0) {
-      flags = O_CREAT | O_WRONLY | O_TRUNC;
       newfd = 1;
+      flags = O_CREAT | O_WRONLY | O_TRUNC;
 
     } else if (strcmp(tok, "<") == 0) {
-      flags = O_RDONLY;
       newfd = 0;
+      flags = O_RDONLY;
 
     } else if (strcmp(tok, ">>") == 0) {
-      flags = O_CREAT | O_WRONLY | O_APPEND;
       newfd = 1;
+      flags = O_CREAT | O_WRONLY | O_APPEND;
     }
 
     if (isIO) {
       outputFile = open(file, flags, S_IRUSR | S_IWUSR);
-
       dup2(outputFile, newfd);
     }
 
@@ -228,6 +224,11 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
    
 
   } else {
+
+    if (setpgid(pid, pid) == -1 && errno != EACCES) {
+      perror(NULL);
+    }
+
     int status = 0;
     wait(&status);
    
