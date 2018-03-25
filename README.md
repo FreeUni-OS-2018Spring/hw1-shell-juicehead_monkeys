@@ -6,7 +6,9 @@
 
 
 გიორგი ქობულაძე - tomriddleperevell
+
 ოთარ დვალიშვილი - sparrowV
+
 ოთარ ჯანხოთელი	-	janxo
 
 
