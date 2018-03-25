@@ -755,7 +755,7 @@ int cmd_nice(unused struct tokens * tokens) {
 
 
 int isIOCommand(struct tokens *tokens) {
-  char *strings[] = {">", "<", "<<", ">>"};
+  char *strings[] = {">", "<", ">>"};
   int size = tokens_get_length(tokens);
   for (int i = 0; i < size; ++i) {
     char *tok = tokens_get_token(tokens, i);
@@ -853,6 +853,7 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
 
   int isBgProcess = isBg(tokens);
   int isIO = isIOCommand(tokens);
+  int lastFile;
   pid_t pid;
 
   pid = fork();
@@ -868,11 +869,16 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     }
 
     size_t nArgs = tokens_get_length(tokens);
-    if (isIO) {
-      nArgs = isIO; // program arguments should be before io sign
-    } else if (isBgProcess) {
+
+    if (isBgProcess) {
       nArgs = nArgs-1; // this means the last token is '&' symbol and is not a program argument
     }
+
+    lastFile = nArgs;
+    if (isIO) {
+      lastFile = nArgs-1;
+      nArgs = isIO; // program arguments should be before io sign
+    }  
 
     char *arr[nArgs+1];
 
@@ -884,46 +890,49 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     }
 
 
-
+    // fill arguments for program to be execute
     for (size_t i = 1; i < nArgs; ++i) {
-     
-       arr[i] = tokens_get_token(tokens, i);
-      
+      arr[i] = tokens_get_token(tokens, i);
     }
 
     arr[nArgs] = NULL;
 
-    char *file = tokens_get_token(tokens, isIO+1);
-
-    int outputFile;
-
-
-    int flags;
-    int newfd;
-
-    char *tok = tokens_get_token(tokens, isIO);
-    if (strcmp(tok, ">") == 0) {
-      newfd = 1;
-      flags = O_CREAT | O_WRONLY | O_TRUNC;
-
-    } else if (strcmp(tok, "<") == 0) {
-      newfd = 0;
-      flags = O_RDONLY;
-
-    } else if (strcmp(tok, ">>") == 0) {
-      newfd = 1;
-      flags = O_CREAT | O_WRONLY | O_APPEND;
-    }
-
     if (isIO) {
-      outputFile = open(file, flags, S_IRUSR | S_IWUSR);
-      dup2(outputFile, newfd);
+      for (int i = isIO; i < lastFile; i += 2){
+        char *file = tokens_get_token(tokens, i+1);
+    
+        int fd;
+    
+    
+        int flags;
+        int newfd;
+    
+        
+        char *tok = tokens_get_token(tokens, i);
+        // output needs to be redrirected
+        if (strcmp(tok, ">") == 0) {
+          newfd = 1;
+          flags = O_CREAT | O_WRONLY | O_TRUNC;
+        // intput needs to be redrirected
+        } else if (strcmp(tok, "<") == 0) {
+          newfd = 0;
+          flags = O_RDONLY;
+        // output needs to be redrirected
+        } else if (strcmp(tok, ">>") == 0) {
+          newfd = 1;
+          flags = O_CREAT | O_WRONLY | O_APPEND;
+        }
+    
+        
+        fd = open(file, flags, S_IRUSR | S_IWUSR);
+        dup2(fd, newfd);
+      }
     }
 
     //tcsetpgrp(newfd, getpid());
     execv(arr[0], arr);
 
-    exit(EXIT_FAILURE); //it comes to this line if only execv failed.In this case terminate child process with failure
+    exit(EXIT_FAILURE); //it comes to this line if only execv failed.In this case termiosnate child process with failure
 
    
 
@@ -1262,17 +1271,68 @@ int makePipes(struct tokens * tokens,int * pipeTokenLocations,int quantityOfPipe
 
 }
 
-int main(unused int argc, unused char *argv[]) {
-  init_shell();
+int booleanOperationsHandler(struct tokens * tokens,int booleanOperationQuantity,int * booleanOperationLocations){
+  bool currentBooleanValue = true;
+  char args[1024];
+  memset(args,0,1024);
+  int currentBooleanIndex = 0;
 
-  static char line[4096];
-  int line_num = 0;
 
-  /* Please only print shell prompts when standard input is not a tty */
-  if (shell_is_interactive)
-    fprintf(stdout, "%d: ", line_num);
+  for(int i=0;i<tokens_get_length(tokens);i++){
+    if(strcmp(tokens_get_token(tokens,i),"&&") == 0 || strcmp(tokens_get_token(tokens,i),"||") == 0 || i == tokens_get_length(tokens)-1){
+  
+      
+      if(i == tokens_get_length(tokens) -1 ){
+            strcat(args,tokens_get_token(tokens,i));
+      }
 
-  while (fgets(line, 4096, stdin)) {
+      if(currentBooleanIndex == 0){
+
+             struct tokens *argsToken = tokenize(args);
+             int status = runMyProgram(argsToken);
+             if(status == 0){
+               currentBooleanValue = true;
+             }else {
+     
+               currentBooleanValue = false;
+             }
+
+             tokens_destroy(argsToken);
+             
+           
+
+      }else if((strcmp(tokens_get_token(tokens,booleanOperationLocations[currentBooleanIndex-1]),"&&") == 0 && currentBooleanValue == true) ||
+             (strcmp(tokens_get_token(tokens,booleanOperationLocations[currentBooleanIndex-1]), "||") == 0 && currentBooleanValue == false)    ){
+               struct tokens *argsToken = tokenize(args);
+         
+               int status =  runMyProgram(argsToken);
+               if(status == 0){
+                 currentBooleanValue = true;
+               }else{
+                 currentBooleanValue = false;
+               }
+
+               tokens_destroy(argsToken);
+             
+              
+
+             }
+               currentBooleanIndex++;
+               memset(args,0,1024); //clean up args for next one
+    }else{
+      strcat(args,tokens_get_token(tokens,i));
+      strcat(args," ");
+    }
+  }
+
+
+  return 0;
+  
+}
+
+
+
+void shellExe(char *line) {
     /* Split our line into words. */
     struct tokens *tokens = tokenize(line);
 
@@ -1284,38 +1344,92 @@ int main(unused int argc, unused char *argv[]) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
+        int booleanOperationQuantity = 0;
+        int booleanOperationLocations[tokens_get_length(tokens)];
 
-      int quantityOfPipes = 0;
-      int pipeTokenLocations[tokens_get_length(tokens)];
-      for(int i=0;i<tokens_get_length(tokens);i++){
-    
-        if(strcmp(tokens_get_token(tokens,i),"|") == 0){
-          
-          pipeTokenLocations[quantityOfPipes] = i;
-          quantityOfPipes++;
+        for(int i=0;i<tokens_get_length(tokens);i++){
+          if(strcmp(tokens_get_token(tokens,i),"&&" ) == 0 || strcmp(tokens_get_token(tokens,i),"||" ) == 0){
+            booleanOperationLocations[booleanOperationQuantity] = i;
+         
+            booleanOperationQuantity++;
+          }
         }
 
-      }
-    
-    
-      if(quantityOfPipes > 0){
-        makePipes(tokens,pipeTokenLocations,quantityOfPipes);
-       
-
+        if(booleanOperationQuantity > 0){
+          booleanOperationsHandler(tokens,booleanOperationQuantity,booleanOperationLocations);
+      
       }else{
-       if(tokens_get_length(tokens) != 0)
-          runMyProgram(tokens);
 
+
+
+        int quantityOfPipes = 0;
+        int pipeTokenLocations[tokens_get_length(tokens)];
+        for(int i=0;i<tokens_get_length(tokens);i++){
+      
+          if(strcmp(tokens_get_token(tokens,i),"|") == 0){
+            
+            pipeTokenLocations[quantityOfPipes] = i;
+            quantityOfPipes++;
+          }
+
+        }
+      
+      
+        if(quantityOfPipes > 0){
+          makePipes(tokens,pipeTokenLocations,quantityOfPipes);
+
+        
+
+       } else{
+
+
+
+        if(tokens_get_length(tokens) != 0){
+
+           runMyProgram(tokens);
+        }
+
+        }
+       }
       }
-    }
+    
 
-    if (shell_is_interactive)
-      /* Please only print shell prompts when standard input is not a tty */
-      fprintf(stdout, "%d: ", ++line_num);
+
 
     /* Clean up memory */
     tokens_destroy(tokens);
-  }
+}
 
+/* Runs shell with passed arguments */
+void runFromBash(int argc, char *commands) {
+  for (char *token = strtok(commands,";"); token != NULL; token = strtok(NULL, ";")) {
+    shellExe(token);
+  }
+}
+
+
+int main(unused int argc, unused char *argv[]) {
+  init_shell();
+
+  static char line[4096];
+  int line_num = 0;
+
+  if (argc >= 3 && strcmp(argv[1], "-c") == 0) {
+    //printf("%s\n", argv[2]);
+    runFromBash(argc, argv[2]);
+  } else {
+
+    /* Please only print shell prompts when standard input is not a tty */
+    if (shell_is_interactive)
+      fprintf(stdout, "%d: ", line_num);
+  
+    while (fgets(line, 4096, stdin)) {
+      shellExe(line);
+  
+      if (shell_is_interactive)
+        /* Please only print shell prompts when standard input is not a tty */
+        fprintf(stdout, "%d: ", ++line_num);   
+    }
+  }
   return 0;
 }
