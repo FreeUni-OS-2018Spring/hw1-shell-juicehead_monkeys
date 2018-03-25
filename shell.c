@@ -38,6 +38,7 @@ int cmd_help(struct tokens *tokens);
 int cmd_pwd(struct tokens * tokens);
 int cmd_cd(struct tokens *tokens);
 int cmd_ulimit(struct tokens * tokens);
+int cmd_kill(struct tokens * tokens);
 
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
@@ -190,9 +191,6 @@ int isIOCommand(struct tokens *tokens) {
 }
 
 
-void handleIoCommand(struct tokens *tokens) {
-
-}
 
 
 
@@ -265,11 +263,20 @@ int isBg(struct tokens *tokens) {
   return 0;
 }
 
+
+static void childCont(int sign) {
+  printf("RAAAARI BIJOOOOOOO -- %d --%d\n", getpid(), tcgetpgrp(0));
+  //kill(getppid(), SIGSTOP);
+  tcsetpgrp(0, getpid());
+}
+
 /* executes given program,if absolutePath variable is empty that means we already have absolute paht in tokens[0],
 if it's not empty then absolute path will be in absolutePath variable
 
  */
 int progrExe(struct tokens *tokens,char * absolutePath) {
+
+  signal(SIGCONT, childCont);
 
   int isBgProcess = isBg(tokens);
   int isIO = isIOCommand(tokens);
@@ -349,7 +356,6 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
       }
     }
 
-    //tcsetpgrp(newfd, getpid());
     execv(arr[0], arr);
 
     exit(EXIT_FAILURE); //it comes to this line if only execv failed.In this case termiosnate child process with failure
@@ -357,20 +363,28 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
    
 
   } else {
-    signal(SIGTTOU, SIG_IGN); // ignore 
+      signal(SIGTTOU, SIG_IGN); // ignore
+      
     if (setpgid(pid, pid) == -1 && errno != EACCES) {
       perror(NULL);
     }
     if (!isBgProcess) {
+     // printf("PARENT MOVE TO BG\n");
       tcsetpgrp(0, pid);
     }
 
     int status = 0;
-    wait(&status);
-    if (!isBgProcess) tcsetpgrp(0, getpid());
+    //wait(&status);
+    waitpid(-1, &status, WSTOPPED);
+    //kill(getpid(), SIGSTOP);
+   // printf("first\n");
+    if (!isBgProcess) {
+      //printf("PARENT MOVE TO FG\n");
+      tcsetpgrp(0, getpid());
+    }
+   // printf("second\n");
     return WEXITSTATUS(status); //on success returns 0,on error return 1
-    
-    
+    //printf("EXITED\n");
 
   }
 
