@@ -309,6 +309,11 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
       arr[0] = absolutePath;
     }
 
+    // fill arguments for program to be execute
+    for (size_t i = 1; i < nArgs; ++i) {
+      arr[i] = tokens_get_token(tokens, i);
+    }
+
     arr[nArgs] = NULL;
 
     if (isIO) {
@@ -323,14 +328,15 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     
         
         char *tok = tokens_get_token(tokens, i);
+        // output needs to be redrirected
         if (strcmp(tok, ">") == 0) {
           newfd = 1;
           flags = O_CREAT | O_WRONLY | O_TRUNC;
-    
+        // intput needs to be redrirected
         } else if (strcmp(tok, "<") == 0) {
           newfd = 0;
           flags = O_RDONLY;
-    
+        // output needs to be redrirected
         } else if (strcmp(tok, ">>") == 0) {
           newfd = 1;
           flags = O_CREAT | O_WRONLY | O_APPEND;
