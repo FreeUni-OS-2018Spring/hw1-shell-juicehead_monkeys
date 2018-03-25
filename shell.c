@@ -846,19 +846,13 @@ int isBg(struct tokens *tokens) {
 }
 
 
-static void childCont(int sign) {
-  printf("RAAAARI BIJOOOOOOO -- %d --%d\n", getpid(), tcgetpgrp(0));
-  //kill(getppid(), SIGSTOP);
-  tcsetpgrp(0, getpid());
-}
+
 
 /* executes given program,if absolutePath variable is empty that means we already have absolute paht in tokens[0],
 if it's not empty then absolute path will be in absolutePath variable
 
  */
 int progrExe(struct tokens *tokens,char * absolutePath) {
-
-  signal(SIGCONT, childCont);
 
   int isBgProcess = isBg(tokens);
   int isIO = isIOCommand(tokens);
@@ -951,31 +945,40 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
       perror(NULL);
     }
     if (!isBgProcess) {
-     // printf("PARENT MOVE TO BG\n");
       tcsetpgrp(0, pid);
     }
 
     int status = 0;
-    //wait(&status);
     waitpid(-1, &status, WSTOPPED);
-    //kill(getpid(), SIGSTOP);
-   // printf("first\n");
+   
     if (!isBgProcess) {
-      //printf("PARENT MOVE TO FG\n");
       tcsetpgrp(0, getpid());
     }
-   // printf("second\n");
     return WEXITSTATUS(status); //on success returns 0,on error return 1
-    //printf("EXITED\n");
 
   }
 
   return 0;
 }
 
+
+// kill builtin
 int cmd_kill(struct tokens * tokens) {
 
-  return 0;
+	int size = tokens_get_length(tokens);
+
+	if (size > 2) {
+		int sigNUM = -atoi(tokens_get_token(tokens, 1));
+		int pid = atoi(tokens_get_token(tokens, 2));
+
+		if (sigNUM > 0 && sigNUM < 65) {
+			return kill(pid, sigNUM);
+		} else {
+			printf("invalid signal specification\n");
+		}
+	}
+
+  return -1;
 }
 
 /* Prints a helpful description for the given command */
