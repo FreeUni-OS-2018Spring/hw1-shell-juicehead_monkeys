@@ -38,7 +38,7 @@ int cmd_help(struct tokens *tokens);
 int cmd_pwd(struct tokens * tokens);
 int cmd_cd(struct tokens *tokens);
 int cmd_ulimit(struct tokens * tokens);
-
+int cmd_nice(struct tokens * tokens);
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
 
@@ -54,123 +54,703 @@ fun_desc_t cmd_table[] = {
   {cmd_exit, "exit", "exit the command shell"},
   {cmd_pwd,"pwd","prints working directory"},
   {cmd_cd,"cd","change directory"},
-  {cmd_ulimit,"ulimit","return or change current limit"}
+  {cmd_ulimit,"ulimit","prints or changes current limit"},
+  {cmd_nice,"nice","prints or changes niceness"}
 };
-
-int cmd_ulimit(unused struct tokens * tokens) {
-	char * lastpart = tokens_get_token(tokens,(size_t)1); 
-	struct rlimit  * t = malloc(sizeof(struct rlimit));
+int getlimit(unused struct tokens * tokens) {
 	int status = -1;
-	if(strcmp(lastpart,"-f")== 0 || strcmp(lastpart,"ulimit")== 0){
+	struct rlimit  * t = malloc(sizeof(struct rlimit)); 
+	if(tokens_get_length(tokens)  == 1) {
 		status = getrlimit(RLIMIT_FSIZE,t);
 		if(t->rlim_cur == RLIM_INFINITY) {
 			printf("file size  :   %s\n","unlimited");
 		} else {
-			printf("file size  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("file size  : %lu \n",t->rlim_cur);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-c")== 0) {
+	}
+	char * lastpart = tokens_get_token(tokens,(size_t)1); 
+	if(strcmp(lastpart,"-a")== 0 || strcmp(lastpart,"-Sa")== 0 || strcmp(lastpart,"-Ha")== 0) {
+		if(strcmp(lastpart,"-Ha")== 0) {
+			status = getrlimit(RLIMIT_CORE,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("core file size		(blocks, -c) %s\n","unlimited");
+			} else{
+				printf("core file size		(blocks, -c) %lu\n",t->rlim_max);
+			} 
+			status = getrlimit(RLIMIT_DATA,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("data seg size		(kbytes, -d) %s\n","unlimited");
+			} else{
+				printf("data seg size		(kbytes, -d) %lu\n",t->rlim_max/1024);
+			}
+			status = getrlimit(RLIMIT_FSIZE,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("file size		(blocks, -f) %s\n","unlimited");
+			} else{
+				printf("file size		(blocks, -f) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_SIGPENDING,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("pending signals			(-i) %s\n","unlimited");
+			} else{
+				printf("pending signals			(-i) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_MEMLOCK,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("max locked memory	(kbytes, -l) %s\n","unlimited");
+			} else{
+				printf("max locked memory	(kbytes, -l) %lu\n",t->rlim_max/1024);
+			}
+			status = getrlimit(RLIMIT_NOFILE,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("open files			(-n) %s\n","unlimited");
+			} else{
+				printf("open files			(-n) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_MSGQUEUE,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("POSIX message queues	 (bytes, -q) %s\n","unlimited");
+			} else{
+				printf("POSIX message queues	 (bytes, -q) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_RTPRIO,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("real-time priority		(-r) %s\n","unlimited");
+			} else{
+				printf("real-time priority		(-r) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_STACK,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("stack size		 (kbytes,-s) %s\n","unlimited");
+			} else{
+				printf("stack size		 (kbytes,-s) %lu\n",t->rlim_max/1024);
+			}
+			status = getrlimit(RLIMIT_CPU,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("spu time		(seconds,-t) %s\n","unlimited");
+			} else{
+				printf("cpu time		(seconds,-t) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_NPROC,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("max user processes		(-u) %s\n","unlimited");
+			} else{
+				printf("max user processes		(-u) %lu\n",t->rlim_max);
+			}
+			status = getrlimit(RLIMIT_AS,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("virtual memory		 (kbytes,-v) %s\n","unlimited");
+			} else{
+				printf("virtual memory		 (kbytes,-v) %lu\n",t->rlim_max/1024);
+			}
+			status = getrlimit(RLIMIT_LOCKS,t);
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("file locks			(-x) %s\n","unlimited");
+			} else{
+				printf("file locks			(-x) %lu\n",t->rlim_max);
+			}
+			return status;
+
+		}
+			status = getrlimit(RLIMIT_CORE,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("core file size		(blocks, -c) %s\n","unlimited");
+			} else{
+				printf("core file size		(blocks, -c) %lu\n",t->rlim_cur);
+			} 
+			status = getrlimit(RLIMIT_DATA,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("data seg size		(kbytes, -d) %s\n","unlimited");
+			} else{
+				printf("data seg size		(kbytes, -d) %lu\n",t->rlim_cur/1024);
+			}
+			status = getrlimit(RLIMIT_FSIZE,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("file size		(blocks, -f) %s\n","unlimited");
+			} else{
+				printf("file size		(blocks, -f) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_SIGPENDING,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("pending signals			(-i) %s\n","unlimited");
+			} else{
+				printf("pending signals			(-i) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_MEMLOCK,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("max locked memory	(kbytes, -l) %s\n","unlimited");
+			} else{
+				printf("max locked memory	(kbytes, -l) %lu\n",t->rlim_cur/1024);
+			}
+			status = getrlimit(RLIMIT_NOFILE,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("open files			(-n) %s\n","unlimited");
+			} else{
+				printf("open files			(-n) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_MSGQUEUE,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("POSIX message queues	 (bytes, -q) %s\n","unlimited");
+			} else{
+				printf("POSIX message queues	 (bytes, -q) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_RTPRIO,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("real-time priority		(-r) %s\n","unlimited");
+			} else{
+				printf("real-time priority		(-r) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_STACK,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("stack size		 (kbytes,-s) %s\n","unlimited");
+			} else{
+				printf("stack size		 (kbytes,-s) %lu\n",t->rlim_cur/1024);
+			}
+			status = getrlimit(RLIMIT_CPU,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("spu time		(seconds,-t) %s\n","unlimited");
+			} else{
+				printf("cpu time		(seconds,-t) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_NPROC,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("max user processes		(-u) %s\n","unlimited");
+			} else{
+				printf("max user processes		(-u) %lu\n",t->rlim_cur);
+			}
+			status = getrlimit(RLIMIT_AS,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("virtual memory		 (kbytes,-v) %s\n","unlimited");
+			} else{
+				printf("virtual memory		 (kbytes,-v) %lu\n",t->rlim_cur/1024);
+			}
+			status = getrlimit(RLIMIT_LOCKS,t);
+			if(t->rlim_cur == RLIM_INFINITY) {
+				printf("file locks			(-x) %s\n","unlimited");
+			} else{
+				printf("file locks			(-x) %lu\n",t->rlim_cur);
+			}
+			return status;
+			
+	}
+	if(strcmp(lastpart,"-f")== 0 || strcmp(lastpart,"-Sf")== 0 || strcmp(lastpart,"-Hf")== 0){
+		status = getrlimit(RLIMIT_FSIZE,t);
+		if(strcmp(lastpart,"-Hf")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
+		if(t->rlim_cur == RLIM_INFINITY) {
+			printf("%s\n","unlimited");
+		} else {
+			printf("%lu\n",t->rlim_cur);
+		}
+		return status;
+	} else if(strcmp(lastpart,"-c")== 0 || strcmp(lastpart,"-Sc")== 0 || strcmp(lastpart,"-Hc")== 0) {
 		status = getrlimit(RLIMIT_CORE,t);
+		if(strcmp(lastpart,"-Hc")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("core file size  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("core file size  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-t")== 0) {
+	} else if(strcmp(lastpart,"-t")== 0 || strcmp(lastpart,"-St")== 0 || strcmp(lastpart,"-Ht")== 0) {
 		status = getrlimit(RLIMIT_CPU,t);
+		if(strcmp(lastpart,"-Ht")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("cpu time  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("cpu time  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-v")== 0) {
+	} else if(strcmp(lastpart,"-v")== 0 || strcmp(lastpart,"-Sv")== 0 || strcmp(lastpart,"-Hv")== 0) {
 		status = getrlimit(RLIMIT_AS,t);
+		if(strcmp(lastpart,"-Hv")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max/1024);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("virtual memory  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("virtual memory  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur/1024);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-d")== 0) {
+	} else if(strcmp(lastpart,"-d")== 0 || strcmp(lastpart,"-Sd")== 0 || strcmp(lastpart,"-Hd")== 0) {
 		status = getrlimit(RLIMIT_DATA,t);
+		if(strcmp(lastpart,"-Hd")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max/1024);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("data seg size  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("data seg size  : %lu    %s\n",t->rlim_cur/1024,lastpart);
+			printf("%lu\n",t->rlim_cur/1024);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-x")== 0) {
+	} else if(strcmp(lastpart,"-x")== 0 || strcmp(lastpart,"-Sx")== 0 || strcmp(lastpart,"-Hx")== 0) {
 		status = getrlimit(RLIMIT_LOCKS,t);
+		if(strcmp(lastpart,"-Hx")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("file locks  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("file locks  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-l")== 0) {
+	} else if(strcmp(lastpart,"-l")== 0 || strcmp(lastpart,"-Sl")== 0 || strcmp(lastpart,"-Hl")== 0) {
 		status = getrlimit(RLIMIT_MEMLOCK,t);
+		if(strcmp(lastpart,"-Hl")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max/1024);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("max locked memory  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("max locked memory  : %lu    %s\n",t->rlim_cur/1024,lastpart);
+			printf("%lu\n",t->rlim_cur/1024);
 		}
 		return status;
 	}
-	else if(strcmp(lastpart,"-q")== 0) {
+	else if(strcmp(lastpart,"-q")== 0 || strcmp(lastpart,"-Sq")== 0 || strcmp(lastpart,"-Hq")== 0) {
 		status = getrlimit(RLIMIT_MSGQUEUE,t);
+		if(strcmp(lastpart,"-Hq")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("POSIX message queue  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("POSIX message queue  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	} else if(strcmp(lastpart,"-n")== 0) {
+	} else if(strcmp(lastpart,"-n")== 0 || strcmp(lastpart,"-Sn")== 0 || strcmp(lastpart,"-Hn")== 0) {
 		status = getrlimit(RLIMIT_NOFILE,t);
+		if(strcmp(lastpart,"-Hn")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("open files  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("open files  : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	}else if(strcmp(lastpart,"-r")== 0) {
+	}else if(strcmp(lastpart,"-r")== 0 || strcmp(lastpart,"-Sr")== 0 || strcmp(lastpart,"-Hr")== 0) {
 		status = getrlimit(RLIMIT_RTPRIO,t);
+		if(strcmp(lastpart,"-Hr")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("real-time priority  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("real-time priority : %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	}	else if(strcmp(lastpart,"-i")== 0) {
+	}	else if(strcmp(lastpart,"-i")== 0 || strcmp(lastpart,"-Si")== 0 || strcmp(lastpart,"-Hi")== 0) {
 		status = getrlimit(RLIMIT_SIGPENDING,t);
+		if(strcmp(lastpart,"-Hi")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("pending signals  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("pending signals: %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
-	}	else if(strcmp(lastpart,"-s")== 0) {
-		status = getrlimit(RLIMIT_STACK,t);
+	}	else if(strcmp(lastpart,"-s")== 0 || strcmp(lastpart,"-Ss")== 0 || strcmp(lastpart,"-Hs")== 0) {
+			status = getrlimit(RLIMIT_STACK,t);
+			if(strcmp(lastpart,"-Hs")== 0) {
+				if(t->rlim_max == RLIM_INFINITY) {
+					printf("%s\n","unlimited");
+				} else {
+					printf("%lu\n",t->rlim_max/1024);
+				}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("stack size  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("stack size: %lu    %s\n",t->rlim_cur/1024,lastpart);
+			printf("%lu\n",t->rlim_cur/1024);
 		}
 		return status;
-	}	else if(strcmp(lastpart,"-u")== 0) {
+	}	else if(strcmp(lastpart,"-u")== 0 || strcmp(lastpart,"-Su")== 0 || strcmp(lastpart,"-Hu")== 0) {
 		status = getrlimit(RLIMIT_NPROC,t);
+		if(strcmp(lastpart,"-Hu")== 0) {
+			if(t->rlim_max == RLIM_INFINITY) {
+				printf("%s\n","unlimited");
+			} else {
+				printf("%lu\n",t->rlim_max);
+			}
+			return status;
+		}
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("max user processes  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("max user processes: %lu    %s\n",t->rlim_cur,lastpart);
+			printf("%lu\n",t->rlim_cur);
 		}
 		return status;
 	}
-	printf("%d\n",status);
 	return status;
 }
+int setlimit(unused struct tokens * tokens) {
+	int status = -1;
+	int setstatus = -1;
+	struct rlimit  * t = malloc(sizeof(struct rlimit)); 
+	struct rlimit *newlimit = malloc(sizeof(struct rlimit));
+	char * lastpart = tokens_get_token(tokens,(size_t)1); 
+	if(strcmp(lastpart,"-f")== 0 || strcmp(lastpart,"-Sf")== 0 || strcmp(lastpart,"-Hf")== 0){
+		status = getrlimit(RLIMIT_FSIZE,t);
+		if(strcmp(lastpart,"-Hf")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_FSIZE,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_FSIZE,newlimit);
+			return setstatus;
+		
+	} else if(strcmp(lastpart,"-c")== 0 || strcmp(lastpart,"-Sc")== 0 || strcmp(lastpart,"-Hc")== 0) {
+		status = getrlimit(RLIMIT_CORE,t);
+		if(strcmp(lastpart,"-Hc")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_CORE,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_CORE,newlimit);
+			return setstatus;
+	} else if(strcmp(lastpart,"-t")== 0 || strcmp(lastpart,"-St")== 0 || strcmp(lastpart,"-Ht")== 0) {
+		status = getrlimit(RLIMIT_CPU,t);
+		if(strcmp(lastpart,"-Ht")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_CPU,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_CPU,newlimit);
+			return setstatus;
+	} else if(strcmp(lastpart,"-v")== 0 || strcmp(lastpart,"-Sv")== 0 || strcmp(lastpart,"-Hv")== 0) {
+		status = getrlimit(RLIMIT_AS,t);
+		if(strcmp(lastpart,"-Hv")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_AS,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_AS,newlimit);
+			return setstatus;
+	} else if(strcmp(lastpart,"-d")== 0 || strcmp(lastpart,"-Sd")== 0 || strcmp(lastpart,"-Hd")== 0) {
+		status = getrlimit(RLIMIT_DATA,t);
+		if(strcmp(lastpart,"-Hd")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_DATA,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_DATA,newlimit);
+			return setstatus;
+	} else if(strcmp(lastpart,"-x")== 0 || strcmp(lastpart,"-Sx")== 0 || strcmp(lastpart,"-Hx")== 0) {
+		status = getrlimit(RLIMIT_LOCKS,t);
+		if(strcmp(lastpart,"-Hx")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_LOCKS,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_LOCKS,newlimit);
+			return setstatus;
+	} else if(strcmp(lastpart,"-l")== 0 || strcmp(lastpart,"-Sl")== 0 || strcmp(lastpart,"-Hl")== 0) {
+		status = getrlimit(RLIMIT_MEMLOCK,t);
+		if(strcmp(lastpart,"-Hl")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_MEMLOCK,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_MEMLOCK,newlimit);
+			return setstatus;
 
+	}	else if(strcmp(lastpart,"-q")== 0 || strcmp(lastpart,"-Sq")== 0 || strcmp(lastpart,"-Hq")== 0) {
+		status = getrlimit(RLIMIT_MSGQUEUE,t);
+		if(strcmp(lastpart,"-Hq")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_MSGQUEUE,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_MSGQUEUE,newlimit);
+			return setstatus;
+	} else if(strcmp(lastpart,"-n")== 0 || strcmp(lastpart,"-Sn")== 0 || strcmp(lastpart,"-Hn")== 0) {
+		status = getrlimit(RLIMIT_NOFILE,t);
+		if(strcmp(lastpart,"-Hn")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+				printf("es unda gaxdes limiti %lu\n",newlimit->rlim_max);
+			}
+			setstatus = setrlimit(RLIMIT_NOFILE,newlimit);
+			printf("%d/n",setstatus);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_NOFILE,newlimit);
+			return setstatus;
+	}else if(strcmp(lastpart,"-r")== 0 || strcmp(lastpart,"-Sr")== 0 || strcmp(lastpart,"-Hr")== 0) {
+		status = getrlimit(RLIMIT_RTPRIO,t);
+		if(strcmp(lastpart,"-Hr")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_RTPRIO,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_RTPRIO,newlimit);
+			return setstatus;
+	}	else if(strcmp(lastpart,"-i")== 0 || strcmp(lastpart,"-Si")== 0 || strcmp(lastpart,"-Hi")== 0) {
+		status = getrlimit(RLIMIT_SIGPENDING,t);
+		if(strcmp(lastpart,"-Hi")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_SIGPENDING,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_SIGPENDING,newlimit);
+			return setstatus;
+	}	else if(strcmp(lastpart,"-s")== 0 || strcmp(lastpart,"-Ss")== 0 || strcmp(lastpart,"-Hs")== 0) {
+		status = getrlimit(RLIMIT_STACK,t);
+		if(strcmp(lastpart,"-Hs")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_STACK,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2))*1024;
+			}
+			setstatus = setrlimit(RLIMIT_STACK,newlimit);
+			return setstatus;
+	}	else if(strcmp(lastpart,"-u")== 0 || strcmp(lastpart,"-Su")== 0 || strcmp(lastpart,"-Hu")== 0) {
+		status = getrlimit(RLIMIT_NPROC,t);
+		if(strcmp(lastpart,"-Hu")== 0) {
+			newlimit->rlim_cur = t->rlim_cur;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_max = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_max = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_NPROC,newlimit);
+			return setstatus;
+		}
+			newlimit->rlim_max = t->rlim_max;
+			if(strcmp(tokens_get_token(tokens,(size_t)2),"unlimited") == 0) {
+				newlimit->rlim_cur = RLIM_INFINITY;
+			} else {
+				newlimit->rlim_cur = atoi(tokens_get_token(tokens,(size_t)2));
+			}
+			setstatus = setrlimit(RLIMIT_NPROC,newlimit);
+			return setstatus;
+	}
+	return (setstatus +status);
+}
+int cmd_ulimit(unused struct tokens * tokens) {
+	int status = -1;
+	if(tokens_get_length(tokens)  == 2  || tokens_get_length(tokens)  == 1) {
+		 status = getlimit(tokens);
+		 return status;
+	}
+	if(tokens_get_length(tokens)  == 3) {
+		status = setlimit(tokens);
+		return status;
+	}
+	return status;
+}
+int cmd_nice(unused struct tokens * tokens) {
+	if(tokens_get_length(tokens) == 1) {
+		errno = 0;
+		int prio = getpriority(PRIO_PROCESS,0);
+		if(prio == -1 && errno != 0) {
+			 printf("folowwing error happned : %s\n",strerror(errno));
+			 return -1;
+		}
+		printf("%d\n",prio);
+		return 0;
+	} else if(tokens_get_length(tokens) == 2) {
+		int newniceval = atoi(tokens_get_token(tokens,(size_t)1));
+		int status = setpriority(PRIO_PROCESS,0,newniceval);
+		if(status == -1) {
+			printf("folowwing error happned : %s\n",strerror(errno));
+			return -1;
+		}
+	}
+	return 0;
+}
 
 
 
