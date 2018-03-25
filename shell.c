@@ -747,17 +747,9 @@ int booleanOperationsHandler(struct tokens * tokens,int booleanOperationQuantity
   
 }
 
-int main(unused int argc, unused char *argv[]) {
-  init_shell();
 
-  static char line[4096];
-  int line_num = 0;
 
-  /* Please only print shell prompts when standard input is not a tty */
-  if (shell_is_interactive)
-    fprintf(stdout, "%d: ", line_num);
-
-  while (fgets(line, 4096, stdin)) {
+void shellExe(char *line) {
     /* Split our line into words. */
     struct tokens *tokens = tokenize(line);
 
@@ -819,13 +811,43 @@ int main(unused int argc, unused char *argv[]) {
       }
     
 
-    if (shell_is_interactive)
-      /* Please only print shell prompts when standard input is not a tty */
-      fprintf(stdout, "%d: ", ++line_num);
+
 
     /* Clean up memory */
     tokens_destroy(tokens);
-  }
+}
 
+/* Runs shell with passed arguments */
+void runFromBash(int argc, char *commands) {
+  for (char *token = strtok(commands,";"); token != NULL; token = strtok(NULL, ";")) {
+    shellExe(token);
+  }
+}
+
+
+int main(unused int argc, unused char *argv[]) {
+  init_shell();
+  printf("sdsd");
+
+  static char line[4096];
+  int line_num = 0;
+
+  if (argc >= 3 && strcmp(argv[1], "-c") == 0) {
+    //printf("%s\n", argv[2]);
+    runFromBash(argc, argv[2]);
+  } else {
+
+    /* Please only print shell prompts when standard input is not a tty */
+    if (shell_is_interactive)
+      fprintf(stdout, "%d: ", line_num);
+  
+    while (fgets(line, 4096, stdin)) {
+      shellExe(line);
+  
+      if (shell_is_interactive)
+        /* Please only print shell prompts when standard input is not a tty */
+        fprintf(stdout, "%d: ", ++line_num);   
+    }
+  }
   return 0;
 }
