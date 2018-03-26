@@ -1083,7 +1083,6 @@ int runMyProgram(struct  tokens * tokens){
     if(statusForCommand == 0 ){ //success
       return 0;
     }else{
-      printf("error with execution program\n");
       
       return -1;
     }
