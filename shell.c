@@ -40,6 +40,7 @@ int cmd_cd(struct tokens *tokens);
 int cmd_ulimit(struct tokens * tokens);
 int cmd_nice(struct tokens * tokens);
 int cmd_type(struct tokens * tokens);
+int cmd_kill(struct tokens * tokens);
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
 
@@ -57,7 +58,8 @@ fun_desc_t cmd_table[] = {
   {cmd_cd,"cd","change directory"},
   {cmd_ulimit,"ulimit","prints or changes current limit"},
   {cmd_nice,"nice","prints or changes niceness"},
-  {cmd_type,"type","prints whether command is buili-in function or other program"}
+  {cmd_type,"type","prints whether command is buili-in function or other program"},
+  {cmd_kill, "kill", "send a signal to a process"}
 };
 /* Looks up the built-in command, if it exists. */
 int lookup(char cmd[]) {
@@ -66,6 +68,7 @@ int lookup(char cmd[]) {
       return i;
   return -1;
 }
+
 int getlimit(unused struct tokens * tokens) {
 	int status = -1;
 	struct rlimit  * t = malloc(sizeof(struct rlimit)); 
@@ -783,6 +786,7 @@ void handleIoCommand(struct tokens *tokens) {
 
 
 
+
 int cmd_cd(unused struct tokens * tokens){
     char *path = tokens_get_token(tokens,(size_t)1); 
    
@@ -851,6 +855,9 @@ int isBg(struct tokens *tokens) {
   if (strcmp(tokens_get_token(tokens, tokens_get_length(tokens)-1), "&") == 0) return 1;
   return 0;
 }
+
+
+
 
 /* executes given program,if absolutePath variable is empty that means we already have absolute paht in tokens[0],
 if it's not empty then absolute path will be in absolutePath variable
@@ -936,7 +943,6 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
       }
     }
 
-    //tcsetpgrp(newfd, getpid());
     execv(arr[0], arr);
 
     exit(EXIT_FAILURE); //it comes to this line if only execv failed.In this case termiosnate child process with failure
@@ -944,7 +950,8 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
    
 
   } else {
-    signal(SIGTTOU, SIG_IGN); // ignore 
+      signal(SIGTTOU, SIG_IGN); // ignore
+      
     if (setpgid(pid, pid) == -1 && errno != EACCES) {
       perror(NULL);
     }
@@ -953,11 +960,12 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
     }
 
     int status = 0;
-    wait(&status);
-    if (!isBgProcess) tcsetpgrp(0, getpid());
+    waitpid(-1, &status, WSTOPPED);
+   
+    if (!isBgProcess) {
+      tcsetpgrp(0, getpid());
+    }
     return WEXITSTATUS(status); //on success returns 0,on error return 1
-    
-    
 
   }
 
@@ -965,6 +973,24 @@ int progrExe(struct tokens *tokens,char * absolutePath) {
 }
 
 
+// kill builtin
+int cmd_kill(struct tokens * tokens) {
+
+	int size = tokens_get_length(tokens);
+
+	if (size > 2) {
+		int sigNUM = -atoi(tokens_get_token(tokens, 1));
+		int pid = atoi(tokens_get_token(tokens, 2));
+
+		if (sigNUM > 0 && sigNUM < 65) {
+			return kill(pid, sigNUM);
+		} else {
+			printf("invalid signal specification\n");
+		}
+	}
+
+  return -1;
+}
 
 /* Prints a helpful description for the given command */
 int cmd_help(unused struct tokens *tokens) {
@@ -1056,9 +1082,40 @@ int cmd_type(unused struct tokens * tokens) {
 		}
 		if(searchInPath(str) != NULL) {
 			printf("%s\n",searchInPath(str));
+			return 1;
 		}
-		return res;
+		if(strcmp(cmd,"!") == 0  || strcmp(cmd,"[[") == 0 || strcmp(cmd,"]]") == 0 || strcmp(cmd,"{") == 0 || strcmp(cmd,"}") == 0 || strcmp(cmd,"case") == 0
+			|| strcmp(cmd,"do") == 0 || strcmp(cmd,"done") == 0 || strcmp(cmd,"fi") == 0 || strcmp(cmd,"for") == 0 || strcmp(cmd,"function") == 0 
+			|| strcmp(cmd,"while") == 0 || strcmp(cmd,"until") == 0 || strcmp(cmd,"select") == 0) {
+			printf("%s is a thell keyword \n",cmd);
+			return 1;
+		}
+		printf("-bash: type : %s : not found \n",cmd);
+		return -1; 
+	} 
+	if(strcmp(tokens_get_token(tokens,(size_t)1),"-a") == 0) {
+		char * cmd = tokens_get_token(tokens,(size_t)2);
+		char * str = malloc(512);
+		strcpy(str,cmd);
+		int res = lookup(cmd);
+		if(res >= 1) {
+			printf("%s is a shell builtin\n",cmd);
+		}
+		if(searchInPath(str) != NULL) {
+			printf("%s\n",searchInPath(str));
+		}
+		return -1;
 	}
+	if(strcmp(tokens_get_token(tokens,(size_t)1),"-p") == 0) {
+		char * cmd = tokens_get_token(tokens,(size_t)2);
+		char * str = malloc(512);
+		strcpy(str,cmd);
+		if(searchInPath(str) != NULL) {
+			printf("%s\n",searchInPath(str));
+		}
+		return -1;
+	}
+
 	return 0;
 }
 
