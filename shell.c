@@ -1403,6 +1403,55 @@ int booleanOperationsHandler(struct tokens * tokens,int booleanOperationQuantity
   
 }
 
+void progrExeWrapper(struct tokens *tokens) {
+	  int booleanOperationQuantity = 0;
+	  int booleanOperationLocations[tokens_get_length(tokens)];
+
+	  for(int i=0;i<tokens_get_length(tokens);i++){
+	    if(strcmp(tokens_get_token(tokens,i),"&&" ) == 0 || strcmp(tokens_get_token(tokens,i),"||" ) == 0){
+	      booleanOperationLocations[booleanOperationQuantity] = i;
+	   
+	      booleanOperationQuantity++;
+	    }
+	  }
+
+	  if(booleanOperationQuantity > 0){
+	    booleanOperationsHandler(tokens,booleanOperationQuantity,booleanOperationLocations);
+	
+	}else{
+
+
+
+	  int quantityOfPipes = 0;
+	  int pipeTokenLocations[tokens_get_length(tokens)];
+	  for(int i=0;i<tokens_get_length(tokens);i++){
+	
+	    if(strcmp(tokens_get_token(tokens,i),"|") == 0){
+	      
+	      pipeTokenLocations[quantityOfPipes] = i;
+	      quantityOfPipes++;
+	    }
+
+	  }
+	
+	
+	  if(quantityOfPipes > 0){
+	    makePipes(tokens,pipeTokenLocations,quantityOfPipes);
+
+	  
+
+	 } else{
+
+
+
+	  if(tokens_get_length(tokens) != 0){
+
+	     runMyProgram(tokens);
+	  }
+
+	  }
+	 }
+}
 
 
 void shellExe(char *line) {
@@ -1417,54 +1466,8 @@ void shellExe(char *line) {
     if (fundex >= 0) {
       cmd_table[fundex].fun(tokens);
     } else {
-        int booleanOperationQuantity = 0;
-        int booleanOperationLocations[tokens_get_length(tokens)];
-
-        for(int i=0;i<tokens_get_length(tokens);i++){
-          if(strcmp(tokens_get_token(tokens,i),"&&" ) == 0 || strcmp(tokens_get_token(tokens,i),"||" ) == 0){
-            booleanOperationLocations[booleanOperationQuantity] = i;
-         
-            booleanOperationQuantity++;
-          }
-        }
-
-        if(booleanOperationQuantity > 0){
-          booleanOperationsHandler(tokens,booleanOperationQuantity,booleanOperationLocations);
-      
-      }else{
-
-
-
-        int quantityOfPipes = 0;
-        int pipeTokenLocations[tokens_get_length(tokens)];
-        for(int i=0;i<tokens_get_length(tokens);i++){
-      
-          if(strcmp(tokens_get_token(tokens,i),"|") == 0){
-            
-            pipeTokenLocations[quantityOfPipes] = i;
-            quantityOfPipes++;
-          }
-
-        }
-      
-      
-        if(quantityOfPipes > 0){
-          makePipes(tokens,pipeTokenLocations,quantityOfPipes);
-
-        
-
-       } else{
-
-
-
-        if(tokens_get_length(tokens) != 0){
-
-           runMyProgram(tokens);
-        }
-
-        }
-       }
-      }
+    	progrExeWrapper(tokens);
+    }
     
 
 
