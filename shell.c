@@ -39,6 +39,7 @@ int cmd_pwd(struct tokens * tokens);
 int cmd_cd(struct tokens *tokens);
 int cmd_ulimit(struct tokens * tokens);
 int cmd_nice(struct tokens * tokens);
+int cmd_type(struct tokens * tokens);
 /* Built-in command functions take token array (see parse.h) and return int */
 typedef int cmd_fun_t(struct tokens *tokens);
 
@@ -55,17 +56,25 @@ fun_desc_t cmd_table[] = {
   {cmd_pwd,"pwd","prints working directory"},
   {cmd_cd,"cd","change directory"},
   {cmd_ulimit,"ulimit","prints or changes current limit"},
-  {cmd_nice,"nice","prints or changes niceness"}
+  {cmd_nice,"nice","prints or changes niceness"},
+  {cmd_type,"type","prints whether command is buili-in function or other program"}
 };
+/* Looks up the built-in command, if it exists. */
+int lookup(char cmd[]) {
+  for (unsigned int i = 0; i < sizeof(cmd_table) / sizeof(fun_desc_t); i++)
+    if (cmd && (strcmp(cmd_table[i].cmd, cmd) == 0))
+      return i;
+  return -1;
+}
 int getlimit(unused struct tokens * tokens) {
 	int status = -1;
 	struct rlimit  * t = malloc(sizeof(struct rlimit)); 
 	if(tokens_get_length(tokens)  == 1) {
 		status = getrlimit(RLIMIT_FSIZE,t);
 		if(t->rlim_cur == RLIM_INFINITY) {
-			printf("file size  :   %s\n","unlimited");
+			printf("%s\n","unlimited");
 		} else {
-			printf("file size  : %lu \n",t->rlim_cur);
+			printf("%lu \n",t->rlim_cur);
 		}
 		return status;
 	}
@@ -753,7 +762,6 @@ int cmd_nice(unused struct tokens * tokens) {
 }
 
 
-
 int isIOCommand(struct tokens *tokens) {
   char *strings[] = {">", "<", ">>"};
   int size = tokens_get_length(tokens);
@@ -768,7 +776,6 @@ int isIOCommand(struct tokens *tokens) {
   }
   return 0;  
 }
-
 
 void handleIoCommand(struct tokens *tokens) {
 
@@ -972,13 +979,7 @@ int cmd_exit(unused struct tokens *tokens) {
   exit(0);
 }
 
-/* Looks up the built-in command, if it exists. */
-int lookup(char cmd[]) {
-  for (unsigned int i = 0; i < sizeof(cmd_table) / sizeof(fun_desc_t); i++)
-    if (cmd && (strcmp(cmd_table[i].cmd, cmd) == 0))
-      return i;
-  return -1;
-}
+
 
 /* Intialization procedures for this shell */
 void init_shell() {
@@ -1043,7 +1044,23 @@ char * searchInPath(char * program){
   free(copyPath); //free copy of env variable 
   return NULL;
 }
-
+int cmd_type(unused struct tokens * tokens) {
+	if(tokens_get_length(tokens) == 2) {
+		char * cmd = tokens_get_token(tokens,(size_t)1);
+		char * str = malloc(512);
+		strcpy(str,cmd);
+		int res = lookup(cmd);
+		if(res >= 1) {
+			printf("%s is a shell builtin\n",cmd);
+			return 1;
+		}
+		if(searchInPath(str) != NULL) {
+			printf("%s\n",searchInPath(str));
+		}
+		return res;
+	}
+	return 0;
+}
 
 //calls progrExe based on given absolute path / only command 
 int runMyProgram(struct  tokens * tokens){
